@@ -1,0 +1,462 @@
+{% extends 'base.html' %}
+
+
+{# 填充标题的block #}
+{% block title %}
+    {{ blog.title }}
+{% endblock %}
+
+{% block nav_blog_active %}
+active
+{% endblock %}
+
+{% load staticfiles %}
+{% load comment_tags %}
+
+{% block header_extends %}
+    <link rel="stylesheet" type="text/css" href="{% static 'blog.css' %}">
+    <link rel="stylesheet" type="text/css" href=" {% static 'blog_detail.css' %}">
+    <script type="text/javascript" src="{% static 'ckeditor/ckeditor-init.js' %} "></script>
+    <script type="text/javascript" src="{% static 'ckeditor/ckeditor/ckeditor.js' %}"></script>
+    <link rel="stylesheet" href="{% static 'css/iconfont.css' %}">
+    <link rel="stylesheet" href="{% static 'font-awesome/css/font-awesome.min.css' %}">
+    <style>
+        html, body {
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          height: 100%;
+          background: #fff;
+        }
+    </style>
+{% endblock %}
+
+{# 填充内容的block #}
+{% block content %}
+    <div class="article__top" style="background-image: url(../static/image/11.jpg)">
+        <div style="background-image: url(https://img.hacpai.com/bing/20190115.jpg?imageView2/1/w/1280/h/720/interlace/1/q/100)"></div>
+        <canvas id="articleTop" width="1344" height="435"></canvas>
+    </div>
+    <canvas id="world" style="position:absolute;z-index:-10;">
+    </canvas>
+    <div class="container">
+        <div class="row1">
+            <div class="col-sm-12 col-md-12 col-lg-12">
+                <ul class="nav navbar-nav navbar-right">
+                    {% if not user.is_authenticated %}
+                        <li><a href="{% url 'login' %}?from={{request.get_full_path}}">
+                            登陆</a>
+                        </li>
+                        <li><a href="{% url 'register' %}?from={{request.get_full_path}}">
+                            注册</a>
+                        </li>
+                    {% else %}
+                        <li class="dropdown">
+                            <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true">
+                                {% if user.has_nickname %}
+                                    {{ user.username }} ({{user.get_nickname}})
+                                {% else %}
+                                    {{ user.username }}
+                                {% endif %}
+                                <span class="caret"></span>
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a href="{% url 'user_info' %}">个人资料</a></li>
+                                <li><a href="{% url 'change_password' %}">修改密码</a></li>
+                                {% if user.is_staff or user.is_superuser %}
+                                    <li><a href="{% url 'admin:index' %}">后台管理</a></li>
+                                {% endif %}
+                                <li><a href="{% url 'logout' %}?from={{request.get_full_path}}">退出</a></li>
+                            </ul>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+            <div class="col-xs-12 col-xs-offset-0">
+                <div class="panel-heading" style="background-image: url(../static/image/8.png);margin-bottom: 30px;">
+                    <hr>
+                    {% block blog_list_title %}<font size=6 color="#000">{{ blog.title }}</font>{% endblock %}
+                    <hr>
+                </div>
+                <div class="wrapper">
+                    <div class="vditor-reset articles article__content">
+                        <p class="vditor-reset articles article__content">
+                            <font size="2">
+                                <img class="avatar" title="88250" alt="88250" src="{% static 'image/headimg.jpg' %}">
+                                {{ blog.author }}&nbsp;&nbsp;&nbsp;&nbsp;
+                            <span class="glyphicon glyphicon-tag"></span>  
+                                <a href="{% url 'blogs_with_type' blog.blog_type.pk %}">
+                                    {{ blog.blog_type }}&nbsp;&nbsp;&nbsp;&nbsp;
+                                </a>
+                            <span class="glyphicon glyphicon-glyphicon glyphicon-time" aria-hidden="true"></span>  
+                                {{ blog.created_time|date:"Y-m-d H:i:s" }}&nbsp;&nbsp;&nbsp;&nbsp;
+                            </font>
+                            <br>
+                            <hr>
+                            <br>
+                        </p>
+                    </div>
+                    <div class="blog-content panel panel-default one">
+                        <font size='4'>{{ blog.content|safe }}</font>
+                    </div>
+                </div>
+                <div class="blog-more navbar-left">
+                    <font size="2"><p>
+                        {% if previous_blog.title %}
+                            <a href="{% url 'blog_detail' previous_blog.pk %}">前一篇博客：{{ previous_blog.title }}</a>
+                        {% else %}
+                            前一篇博客：到顶啦^-^
+                        {% endif %}
+                    </p></font>
+                </div>
+                <div class="blog-more navbar-right">
+                    <font size="2"><p>
+                        {% if next_blog.title %}
+                            <a href="{% url 'blog_detail' next_blog.pk %}">后一篇博客：{{ next_blog.title }}</a>
+                        {% else %}
+                            后一篇博客：到底啦^-^
+                        {% endif %}
+                    </p></font>
+                </div>
+            </div>
+        </div>
+        <canvas id="world"></canvas>
+        <div class="row">
+            <div class="col-xs-12 col-xs-offset-0">
+                <div class="comment-area">
+                    <h3 class="comment-area-title">评论</h3>
+                    {% if user.is_authenticated %}
+                        <form id='comment_form'  action="{% url 'update_comment' %}" method="POST" style="
+                        overflow: hidden;">
+                            <label for="comment_text">
+                                <font size='3'>{{ user.get_nickname_or_username }}，欢迎评论~</font>
+                            </label>
+                            <div id="reply_content_container" style="display: none;">
+                                <h4 id="reply_title"><p> 回复： </p></h4>
+                                <h4><div id="reply_content"></div></h4>
+                            </div>
+                            {% csrf_token %}
+                            {% get_comment_form blog as comment_form %}
+                            {% for field in comment_form %}
+                                {{ field }}
+                            {% endfor %}
+                            <span id='comment_error' class="text-danger pull-left"></span>
+                            <input type="submit" value="评论" class="btn btn-primary pull-right">
+                        </form>
+                    {% else %}
+                        <font size='3'>您尚未登录，登陆之后方可评论
+                        <a class="btn btn-primary" href="{% url 'login' %}?from={{request.get_full_path}}">登陆</a>
+                        <span> or </span>
+                        <a class="btn btn-danger" href="{% url 'register' %}?from={{request.get_full_path}}">注册</a></font>
+                    {% endif %}
+                </div>
+                <div class="comment-area">
+                    <h3 class="comment-area-title">看看别人说了啥把</h3>
+                    <div id='comment_list'>
+                        {% get_comment_list blog as comments %}
+                        {% for comment in comments %}
+                            <div id="root_{{ comment.pk }}" class="comment">
+                                <span>{{ comment.user.get_nickname_or_username }}</span>
+                                <span>({{ comment.comment_time|date:"Y-m-d H:i:s" }})：</span>
+                                <div id="comment_{{ comment.pk }}">
+                                    {{ comment.text|safe }}
+                                </div>
+                                <a href="javascript:reply({{ comment.pk }});">回复</a>
+
+                                {% for reply in comment.root_comment.all %}
+                                    <div class="reply">
+                                        <span>{{ reply.user.get_nickname_or_username }}</span>
+                                        <span>({{ reply.comment_time|date:"Y-m-d H:i:s" }})</span>
+                                        <span>回复</span>
+                                        <span>{{ reply.reply_to.get_nickname_or_username }}：</span>
+                                        <div id="comment_{{ reply.pk }}">
+                                            {{ reply.text|safe }}
+                                        </div>
+                                        <a href="javascript:reply({{ reply.pk }});">回复</a>
+                                    </div>   
+                                {% endfor %}
+                            </div>
+                        {% empty %}
+                            <span id="no_comment">暂无评论</span>
+                        {%endfor%}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <footer class="yewei">
+                    <div class="footer container">
+                        <div class="row">
+                            <div class="col-xs-12 col-xs-12 col-lg-12">
+                                <div class="col-sm-12">
+                                    <p class="navbar">
+                                        <a class="scroll-left icon-arrow-left b" href="#" data-offset="-45"></a>
+                                    </p>
+                                </div>
+                                <font color="#bbb">
+                                    <div class="col-xs-6">
+                                        <p>Devin (ZX)</p>
+                                    </div>
+                                    <div class="col-xs-6">
+                                        <p class="navbar-right">Copyright © 一只没有脚的猪</p>
+                                    </div>
+                                    <div class="col-xs-6">
+                                        <p>浙江某丝绸学校即将毕业</p>
+                                    </div>
+                                    <div class="col-xs-6">
+                                         <p class="navbar-right">Devin's Homestead</p>
+                                    </div>
+                                    <div class="col-xs-6">
+                                        <p>
+                                            MAIL: zxzx1010732441mei@163.com
+                                        </p>
+                                    </div>
+                                    <div class="col-xs-6">
+                                        <p class="navbar-right">All rights reserved</p>
+                                    </div> 
+                                    <div class="col-xs-6">
+                                        <p>QQ: 1010732441</p>
+                                    </div>  
+                                    <div class="col-xs-6">
+                                        <p class="navbar-right">浙ICP备*******号</p>
+                                    </div>
+                                    <div id="social" class="col-xs-6 col-md-6 col-lg-6"style="padding-top: 40px;">
+                                        <div class="nav navbar-nav navbar-left">
+                                            <p>Contact With Me:</p>
+                                        </div>
+                                    </div>  
+                                    <div class="col-xs-12 col-md-6 col-lg-6">
+                                        <ul id="social-menu" class="nav navbar-nav navbar-right">
+                                            <li>
+                                                <!-- Button trigger modal -->
+                                                <a type="button" class="btn btn-lg" data-toggle="modal" data-target=".bs-example-modal-sm">
+                                                    <i class="fa fa-wechat fa-2x"></i>
+                                                </a>
+                                                <div class="modal fade bs-example-modal-sm" tabindex="-1" role="dialog" aria-labelledby="mySmallModalLabel">
+                                                  <div class="modal-dialog modal-sm" role="document">
+                                                    <div class="modal-content">
+                                                        <img src="{% static 'image/smallicon/myweixin.png' %}">
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                            </li>
+                                            <li><a href="https://weibo.com/6088357926/profile?topnav=1&wvr=6&is_all=1"><i class="fa fa-weibo fa-2x"></i></a></li>
+                                            <li><a href="https://github.com/Devinyy?tab=repositories"><i class="fa fa-github fa-2x"></i></a></li>
+                                            <li><a class="zhihu" href="https://www.zhihu.com/people/zhe-ye-10-87/activities"><i class="iconfont icon-weizhi"></i></a></li>
+                                        </ul>
+                                    </div>  
+                                 </font>            
+                            </div>
+                        </div>
+                    </div>
+    </footer>
+    
+{% endblock %}
+
+{% block script_extends %}
+    <script type="text/javascript">
+        function reply(reply_comment_id){
+            // 设置值
+            $('#reply_comment_id').val(reply_comment_id);
+            var html = $("#comment_" + reply_comment_id).html();
+            $('#reply_content').html(html);
+            $('#reply_content_container').show();
+
+            $('html').animate({scrollTop: $('#comment_form').offset().top - 130}, 300, function(){
+                CKEDITOR.instances['id_text'].focus();
+            });
+        }
+        function timeFormat(timestamp){
+            var datetime = new Date(timestamp * 1000);
+            var year = datetime.getFullYear();
+            var month = numFormat(datetime.getMonth()+1);
+            var day = numFormat(datetime.getDate());
+            var hour = numFormat(datetime.getHours());
+            var minute = numFormat(datetime.getMinutes());
+            var second = numFormat(datetime.getSeconds());
+            return year + '-' + month + '-' + day + ' ' + hour + ':' + minute + ':' + second;
+        }
+        function numFormat(num){
+            return ('00' + num).substr(-2);
+        }
+        $("#comment_form").submit(function(){
+            // 清空错误信息
+            $("#comment_error").text('');
+            // 判断是否为空
+            if (CKEDITOR.instances['id_text'].document.getBody().getText().trim()==''){
+                $("#comment_error").text('评论内容不能为空');
+                return false;
+            }
+
+            // 更新数据到textarea里
+            CKEDITOR.instances['id_text'].updateElement();
+            // 异步提交
+            $.ajax({
+                url: "{% url 'update_comment' %}", 
+                type: 'POST',
+                data: $(this).serialize(),
+                cache: false,
+                success: function(data){
+                    console.log(data);
+                    if (data['status'] == 'SUCCESS'){
+                        if ($('#reply_comment_id').val()=='0'){
+                            // 插入评论
+                            var comment_html = '<div id="root_'+ data['pk'] +'" class="comment">' +
+                                                    '<span>' + data['username'] + '</span>' +
+                                                    '<span>(' + timeFormat(data['comment_time']) + ')：</span>' +
+                                                    '<div id="comment_' + data['pk'] + '">' +
+                                                        data['text'] + 
+                                                    '</div>' +
+                                                    '<a href="javascript:reply(' + data['text'] + ');">回复</a>' +
+                                                '</div>'
+                            $("#comment_list").prepend(comment_html);
+                        }else{
+                            // 插入回复
+                            var reply_html = '<div class="reply">' +
+                                                '<span>' + data['username'] + '</span>' +
+                                                '<span>(' + timeFormat(data['comment_time']) + ')：</span>' +
+                                                '<span>回复</span>' +
+                                                '<span>(' + data['reply_to'] + ')：</span>' +
+                                                '<div id="comment_' + data['pk'] + '">' +
+                                                    data['text'] + 
+                                                '</div>' +
+                                                '<a href="javascript:reply('+ data['pk'] +');">回复</a>' +
+                                            '</div>'
+                            $("#root_"+ data['root_pk']).append(reply_html);
+                        }
+                        // 清空编辑框的内容
+                        CKEDITOR.instances['id_text'].setData('');
+                        $('#reply_content_container').hide();
+                        $('#reply_comment_id').val('0');
+                        $('#no_comment').remove();
+                        $("#comment_success").text(data['评论成功']);
+                    }else{
+                        // 显示错误信息
+                        $("#comment_error").text(data['message']);
+                    }                    
+                },
+                error: function(xhr){
+                    console.log(xhr);
+                },
+            });
+            return false;
+        });
+    </script>
+    <script>
+        (function() {
+          var COLORS, Confetti, NUM_CONFETTI, PI_2, canvas, confetti, context, drawCircle, i, range, resizeWindow, xpos;
+
+          NUM_CONFETTI = 350;
+
+          COLORS = [[85, 71, 106], [174, 61, 99], [219, 56, 83], [244, 92, 68], [248, 182, 70]];
+
+          PI_2 = 2 * Math.PI;
+
+          canvas = document.getElementById("world");
+
+          context = canvas.getContext("2d");
+
+          window.w = 0;
+
+          window.h = 0;
+
+          resizeWindow = function() {
+            window.w = canvas.width = window.innerWidth;
+            return window.h = canvas.height = window.innerHeight;
+          };
+
+          window.addEventListener('resize', resizeWindow, false);
+
+          window.onload = function() {
+            return setTimeout(resizeWindow, 0);
+          };
+
+          range = function(a, b) {
+            return (b - a) * Math.random() + a;
+          };
+
+          drawCircle = function(x, y, r, style) {
+            context.beginPath();
+            context.arc(x, y, r, 0, PI_2, false);
+            context.fillStyle = style;
+            return context.fill();
+          };
+
+          xpos = 0.5;
+
+          document.onmousemove = function(e) {
+            return xpos = e.pageX / w;
+          };
+
+          window.requestAnimationFrame = (function() {
+            return window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || window.oRequestAnimationFrame || window.msRequestAnimationFrame || function(callback) {
+              return window.setTimeout(callback, 1000 / 60);
+            };
+          })();
+
+          Confetti = class Confetti {
+            constructor() {
+              this.style = COLORS[~~range(0, 5)];
+              this.rgb = `rgba(${this.style[0]},${this.style[1]},${this.style[2]}`;
+              this.r = ~~range(2, 6);
+              this.r2 = 2 * this.r;
+              this.replace();
+            }
+
+            replace() {
+              this.opacity = 0;
+              this.dop = 0.03 * range(1, 4);
+              this.x = range(-this.r2, w - this.r2);
+              this.y = range(-20, h - this.r2);
+              this.xmax = w - this.r;
+              this.ymax = h - this.r;
+              this.vx = range(0, 2) + 8 * xpos - 5;
+              return this.vy = 0.7 * this.r + range(-1, 1);
+            }
+
+            draw() {
+              var ref;
+              this.x += this.vx;
+              this.y += this.vy;
+              this.opacity += this.dop;
+              if (this.opacity > 1) {
+                this.opacity = 1;
+                this.dop *= -1;
+              }
+              if (this.opacity < 0 || this.y > this.ymax) {
+                this.replace();
+              }
+              if (!((0 < (ref = this.x) && ref < this.xmax))) {
+                this.x = (this.x + this.xmax) % this.xmax;
+              }
+              return drawCircle(~~this.x, ~~this.y, this.r, `${this.rgb},${this.opacity})`);
+            }
+
+          };
+
+          confetti = (function() {
+            var j, ref, results;
+            results = [];
+            for (i = j = 1, ref = NUM_CONFETTI; (1 <= ref ? j <= ref : j >= ref); i = 1 <= ref ? ++j : --j) {
+              results.push(new Confetti);
+            }
+            return results;
+          })();
+
+          window.step = function() {
+            var c, j, len, results;
+            requestAnimationFrame(step);
+            context.clearRect(0, 0, w, h);
+            results = [];
+            for (j = 0, len = confetti.length; j < len; j++) {
+              c = confetti[j];
+              results.push(c.draw());
+            }
+            return results;
+          };
+
+          step();
+
+        }).call(this);
+    </script>
+{% endblock %}
